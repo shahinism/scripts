@@ -2,16 +2,17 @@ import re
 import sys
 from logzero import logger
 from typing import List
-from plumbum import NOHUP
+from plumbum import NOHUP, RETCODE
 
 try:
-    from plumbum.cmd import xrandr, polybar, killall
+    from plumbum.cmd import xrandr, polybar, killall, pgrep
 except ImportError as e:
     logger.error(
         """
 %s
 It probably means the command is not installed on your system!
-    """ % e.msg
+    """
+        % e.msg
     )
     sys.exit(1)
 
@@ -46,8 +47,20 @@ def set_polybar(monitor: str) -> None:
         polybar_reload(monitor, position)
 
 
+def process_exists(process: str) -> bool:
+    return pgrep[process] & RETCODE == 0
+
+
+def kill_process_if_exists(process: str, signal: int = 9) -> None:
+    if process_exists(process):
+        logger.info(f"killing {process} with signal {signal}!")
+        killall[f"-{signal}", process]()
+    else:
+        logger.info(f"Process {process} is not running on this machine!")
+
+
 def main() -> None:
-    killall["-9", "polybar"]()
+    kill_process_if_exists("polybar")
     connected = get_connected_screens()
     for screen in connected:
         set_polybar(screen)
